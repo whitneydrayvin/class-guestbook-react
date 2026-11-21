@@ -1,122 +1,104 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
+import { supabase } from "./supabaseClient";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  // ---------- STATE: what the page remembers ----------
+  const [messages, setMessages] = useState([]); // rows from the database
+  const [name, setName] = useState(""); // what's typed in the Name box
+  const [text, setText] = useState(""); // what's typed in the Message box
+  const [status, setStatus] = useState("Loading messages...");
 
+  // ---------- READ: get every message, newest first ----------
+  async function loadMessages() {
+    const { data, error } = await supabase
+      .from("messages")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setStatus("Couldn't load messages: " + error.message);
+      return;
+    }
+    setMessages(data);
+    setStatus(data.length === 0 ? "No messages yet. Be the first!" : "");
+  }
+
+  // Run loadMessages once, when the page first opens
+  useEffect(() => {
+    if (supabase) loadMessages();
+  }, []);
+
+  // ---------- WRITE: add a new message ----------
+  async function postMessage(event) {
+    event.preventDefault(); // stop the browser from reloading the page
+    setStatus("Saving...");
+
+    const { error } = await supabase
+      .from("messages")
+      .insert({ name: name.trim(), message: text.trim() });
+
+    if (error) {
+      setStatus("Couldn't save: " + error.message);
+      return;
+    }
+    setText(""); // clear the message box (keep the name)
+    loadMessages(); // reload so the new message shows up
+  }
+
+  // ---------- Shown if .env.local is missing ----------
+  if (!supabase) {
+    return (
+      <main className="wrap">
+        <h1>Class Guestbook</h1>
+        <p className="status error">
+          Not connected to Supabase yet. Check your .env.local file, then
+          stop and restart npm run dev.
+        </p>
+      </main>
+    );
+  }
+
+  // ---------- What the page shows ----------
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Class Guestbook</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <main className="wrap">
+      <h1>Class Guestbook</h1>
+      <p className="intro">Sign the guestbook. Every message is saved in Supabase.</p>
 
-      <div className="ticks"></div>
+      <form className="card" onSubmit={postMessage}>
+        <label htmlFor="name">Your name</label>
+        <input
+          id="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          maxLength={50}
+        />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        <label htmlFor="message">Message</label>
+        <textarea
+          id="message"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          required
+          maxLength={500}
+        />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        <button type="submit">Sign the guestbook</button>
+      </form>
+
+      {status && <p className="status">{status}</p>}
+
+      <ul className="messages">
+        {messages.map((m) => (
+          <li key={m.id}>
+            <div className="row-top">
+              <strong>{m.name}</strong>
+              <span className="when">{new Date(m.created_at).toLocaleString()}</span>
+            </div>
+            <p>{m.message}</p>
+          </li>
+        ))}
+      </ul>
+    </main>
+  );
 }
-
-export default App
