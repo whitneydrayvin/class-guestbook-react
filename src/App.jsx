@@ -95,7 +95,7 @@ export default function App() {
       <h1>Class Guestbook</h1>
       <p className="intro">
         Anyone can read the guestbook. Log in to sign it. You can delete your own
-        messages, but nobody else's.
+        messages, but nobody else's. And this is the test to see if it goes through Vercel.
       </p>
 
       <AuthPanel user={user} />
